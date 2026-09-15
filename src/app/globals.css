@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+  Design tokens.
+  One brand colour (deep pine), one warm neutral scale, one accent used only
+  for credential badges. Deliberately no gradients, no shadow soup.
+*/
+@theme {
+  --color-paper: #fbfaf8;
+  --color-paper-sunk: #f4f2ee;
+  --color-ink: #0f1311;
+  --color-ink-soft: #3d4441;
+  --color-muted: #6b716d;
+  --color-line: #e4e0d8;
+  --color-line-strong: #d3cec3;
+
+  --color-brand: #14493c;
+  --color-brand-hover: #0e3a30;
+  --color-brand-soft: #e9f1ed;
+  --color-brand-ink: #0b2b24;
+
+  --color-accent: #9a5b12;
+  --color-accent-soft: #fbf1e0;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+
+  --radius-card: 0.875rem;
+
+  --animate-rise: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Display type is tight and dark; body copy stays generously spaced. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  max-width: 72rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 2rem;
+  }
+}
