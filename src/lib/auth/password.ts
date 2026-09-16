@@ -1,5 +1,6 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./constants.ts";
 
 const scrypt = promisify(scryptCallback) as (
   password: string | Buffer,
@@ -22,8 +23,7 @@ const PARAMS = { N: 2 ** 16, r: 8, p: 1, maxmem: 192 * 1024 * 1024 } as const;
 const KEY_LENGTH = 64;
 const SALT_LENGTH = 16;
 
-export const MIN_PASSWORD_LENGTH = 10;
-export const MAX_PASSWORD_LENGTH = 200;
+export { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH };
 
 /** Produces `scrypt$N$r$p$salt$hash`, all binary parts base64url encoded. */
 export async function hashPassword(password: string): Promise<string> {
