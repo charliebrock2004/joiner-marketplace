@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { site } from "@/lib/config/site";
+import { metadataBase, site } from "@/lib/config/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(site.url),
+  metadataBase,
   title: {
     default: `${site.name} — find a joiner for small jobs in ${site.region}`,
     template: `%s · ${site.name}`,

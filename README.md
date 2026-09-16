@@ -60,6 +60,12 @@ Set the environment variables in `.env.example` on Vercel. **At minimum you
 must configure one durable destination for submissions** — either the Resend
 email variables or a webhook URL.
 
+`NEXT_PUBLIC_SITE_URL` should be your real domain. It is not required for the
+build to succeed: a missing, empty or malformed value falls back to Vercel's
+own deployment domain and then to localhost, with a warning, rather than
+failing the build. Canonical URLs, the sitemap and share links will be wrong
+until it is set, so set it before launch.
+
 If you deploy without either, the forms return a clear error instead of
 pretending to have accepted the job. That is intentional: silently losing a
 customer's first submission is the worst thing this site could do.
