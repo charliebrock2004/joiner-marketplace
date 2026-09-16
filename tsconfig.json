@@ -17,6 +17,9 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Relative imports carry an explicit .ts extension so that Node can run
+    // the scripts in ./scripts natively. Safe here because we never emit.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [

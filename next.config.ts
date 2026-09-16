@@ -36,6 +36,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Native/wasm database drivers must not be bundled — they are required at
+  // runtime on the server only.
+  serverExternalPackages: ["pg", "@electric-sql/pglite"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
