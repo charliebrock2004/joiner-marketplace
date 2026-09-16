@@ -29,6 +29,28 @@ export function isBlobConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
 }
 
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+}
+
+/**
+ * Refuses the local-disk fallback in production.
+ *
+ * Serverless filesystems are ephemeral. Without Blob configured, an upload
+ * would appear to succeed, the job or profile would show a photo, and the
+ * image would 404 after the next deploy. An honest failure at upload time is
+ * better than a listing that quietly loses its photos.
+ */
+function assertStorageConfigured(): void {
+  if (!isBlobConfigured() && isProductionRuntime()) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is not set. Refusing to write uploads to the local " +
+        "filesystem in production — it is ephemeral, so photos would disappear " +
+        "on the next deploy. Create a Vercel Blob store for this project.",
+    );
+  }
+}
+
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -75,6 +97,13 @@ export async function storeImages(
   const usable = files.filter((file) => file.size > 0);
   if (usable.length === 0) return { images: [] };
   if (usable.length > limit) return { message: `You can upload up to ${limit} photos` };
+
+  try {
+    assertStorageConfigured();
+  } catch (error) {
+    console.error("[storage]", error instanceof Error ? error.message : error);
+    return { message: "Photo uploads are not available right now. Please try again later." };
+  }
 
   const validated = await validateImageUploads(usable);
   if ("message" in validated) return validated;

@@ -32,15 +32,54 @@ export interface Database {
 async function createPgDatabase(connectionString: string): Promise<Database> {
   const { Pool } = await import("pg");
 
+  const isLocal = /\blocalhost\b|\b127\.0\.0\.1\b/.test(connectionString);
+
+  /**
+   * TLS.
+   *
+   * The connection carries database credentials and personal data across the
+   * public internet, so the certificate chain is verified by default. Turning
+   * verification off would let anyone who can intercept the connection read
+   * all of it.
+   *
+   * If the provider's chain is not in node's trust store, supply its CA with
+   * DATABASE_SSL_CA rather than disabling the check. DATABASE_SSL_NO_VERIFY
+   * exists as a deliberate, documented escape hatch and is logged loudly.
+   */
+  let ssl: false | { rejectUnauthorized: boolean; ca?: string } = false;
+  if (!isLocal) {
+    if (process.env.DATABASE_SSL_NO_VERIFY === "true") {
+      console.warn(
+        "[db] DATABASE_SSL_NO_VERIFY is set — the database certificate is NOT " +
+          "being verified. Prefer supplying the provider CA via DATABASE_SSL_CA.",
+      );
+      ssl = { rejectUnauthorized: false };
+    } else {
+      const ca = process.env.DATABASE_SSL_CA?.trim();
+      ssl = ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: true };
+    }
+  }
+
   const pool = new Pool({
     connectionString,
-    // Hosted Postgres (Supabase/Neon) terminates TLS with its own chain.
-    ssl: /\blocalhost\b|\b127\.0\.0\.1\b/.test(connectionString)
-      ? undefined
-      : { rejectUnauthorized: false },
-    max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+    ssl,
+    /**
+     * One connection per instance by default.
+     *
+     * On serverless each instance serves few concurrent requests but many
+     * instances exist at once, so a large per-instance pool multiplies into
+     * the provider's client limit for no benefit. A transaction pooler is
+     * built for exactly this shape.
+     */
+    max: Number(process.env.DATABASE_POOL_MAX ?? 1),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
+  });
+
+  pool.on("error", (error) => {
+    // A pooled connection dropped while idle. Log it rather than letting an
+    // unhandled 'error' event take the process down.
+    console.error("[db] idle client error", error.message);
   });
 
   type PgClient = { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }>; release: () => void };
@@ -159,9 +198,37 @@ let instance: Promise<Database> | null = null;
 /** Where PGlite persists in development. Ignored when DATABASE_URL is set. */
 export const LOCAL_DB_DIR = process.env.LOCAL_DATABASE_DIR ?? ".data/postgres";
 
-export function getDb(): Promise<Database> {
+/**
+ * True when this process is running as a deployed application rather than a
+ * developer machine or a test.
+ */
+export function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+}
+
+/**
+ * Refuses the local fallback in production.
+ *
+ * Without this, a missing or misspelled DATABASE_URL would silently boot the
+ * app on an in-process database. Every page would render, every signup would
+ * appear to work, and all of it would vanish on the next cold start. Failing
+ * to start is far better than losing real users' data quietly.
+ */
+function assertDatabaseConfigured(connectionString: string | undefined): void {
+  if (!connectionString && isProductionRuntime()) {
+    throw new Error(
+      "DATABASE_URL is not set. Refusing to start on the local PGlite fallback " +
+        "in production — it is in-process and ephemeral, so all data would be " +
+        "lost on the next cold start. Set DATABASE_URL to your Postgres " +
+        "connection string.",
+    );
+  }
+}
+
+export async function getDb(): Promise<Database> {
   if (!instance) {
     const connectionString = process.env.DATABASE_URL?.trim();
+    assertDatabaseConfigured(connectionString);
     instance = connectionString
       ? createPgDatabase(connectionString)
       : createPgliteDatabase(LOCAL_DB_DIR);
@@ -170,8 +237,11 @@ export function getDb(): Promise<Database> {
 }
 
 /** Test/CLI helper — builds an isolated database rather than the singleton. */
-export function createDatabase(options: { url?: string; dataDir?: string } = {}): Promise<Database> {
+export async function createDatabase(
+  options: { url?: string; dataDir?: string } = {},
+): Promise<Database> {
   const connectionString = options.url ?? process.env.DATABASE_URL?.trim();
+  assertDatabaseConfigured(connectionString);
   return connectionString
     ? createPgDatabase(connectionString)
     : createPgliteDatabase(options.dataDir);

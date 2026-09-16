@@ -5,10 +5,9 @@ import { parsePostcode } from "../geo/postcode.ts";
 /**
  * Demo data for local development.
  *
- * Refuses to run against a database that is not explicitly marked as a
- * development one. Fake reviews and fake verification badges are exactly the
- * kind of thing that destroys trust in a marketplace, so they must never reach
- * production.
+ * Refuses to run against any database other than the local one. Fake reviews
+ * and fake verification badges are exactly the kind of thing that destroys
+ * trust in a marketplace, so they must never reach production.
  *
  * Every demo account uses the same password and an @example.com address, which
  * is a reserved domain that cannot receive mail.
@@ -16,11 +15,27 @@ import { parsePostcode } from "../geo/postcode.ts";
 
 export const DEMO_PASSWORD = "tradezy-demo-pw";
 
-function guard(): void {
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "yes") {
+export function assertDemoSeedAllowed(): void {
+  /**
+   * Keyed on the TARGET DATABASE, not on NODE_ENV.
+   *
+   * NODE_ENV is not "production" when a developer runs
+   *   DATABASE_URL=<production> npm run db:demo
+   * from their own machine — npm does not set it. A NODE_ENV check therefore
+   * would not fire on the one command most likely to do real damage, and fake
+   * accounts, jobs and reviews would land in the live marketplace.
+   *
+   * Any remote database is refused. Only the local PGlite database is allowed.
+   */
+  const remote = Boolean(process.env.DATABASE_URL?.trim());
+  const deployed = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
+
+  if ((remote || deployed) && process.env.ALLOW_DEMO_SEED !== "yes") {
     throw new Error(
-      "Refusing to seed demo data in production. Demo reviews and verification " +
-        "states are not real and must not appear to customers.",
+      "Refusing to seed demo data into a database other than the local one. " +
+        "Demo accounts, jobs, reviews and verification states are not real and " +
+        "must never appear to customers. Use `npm run db:seed` for the trades " +
+        "taxonomy, which is the only thing production needs.",
     );
   }
 }
@@ -69,7 +84,7 @@ export async function seedDemoData(
   db: Database,
   log: (message: string) => void = () => {},
 ): Promise<{ users: number; jobs: number }> {
-  guard();
+  assertDemoSeedAllowed();
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 

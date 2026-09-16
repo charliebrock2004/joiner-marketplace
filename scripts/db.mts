@@ -12,7 +12,7 @@
 import { createDatabase, LOCAL_DB_DIR } from "../src/lib/db/client.ts";
 import { migrate, pendingMigrations } from "../src/lib/db/migrate.ts";
 import { seedReferenceData } from "../src/lib/db/reference-data.ts";
-import { seedDemoData } from "../src/lib/db/demo-seed.ts";
+import { assertDemoSeedAllowed, seedDemoData } from "../src/lib/db/demo-seed.ts";
 
 const command = process.argv[2] ?? "migrate";
 const usingLocal = !process.env.DATABASE_URL?.trim();
@@ -26,6 +26,9 @@ function assertLocalOnly(action: string): void {
   }
 }
 
+// Checked before connecting, so a refused demo seed touches nothing at all.
+if (command === "demo") assertDemoSeedAllowed();
+
 const db = await createDatabase({ dataDir: usingLocal ? LOCAL_DB_DIR : undefined });
 
 console.log(`\ndatabase: ${usingLocal ? `local PGlite (${LOCAL_DB_DIR})` : "DATABASE_URL"}`);
@@ -34,9 +37,14 @@ try {
   switch (command) {
     case "status": {
       const pending = await pendingMigrations(db);
-      const applied = await db.query<{ name: string; applied_at: string }>(
-        "select name, applied_at from schema_migrations order by name",
+      const [present] = await db.query<{ present: string | null }>(
+        "select to_regclass('public.schema_migrations') as present",
       );
+      const applied = present?.present
+        ? await db.query<{ name: string; applied_at: string }>(
+            "select name, applied_at from schema_migrations order by name",
+          )
+        : [];
       console.log(`\napplied (${applied.length}):`);
       for (const row of applied) log(`${row.name}`);
       console.log(`\npending (${pending.length}):`);

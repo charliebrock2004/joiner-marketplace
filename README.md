@@ -67,7 +67,9 @@ npm run db:status   npm run db:reset
 ## Deploying
 
 1. Create a Postgres database (Supabase, Neon, Vercel Postgres) and set
-   `DATABASE_URL` to its **pooled** connection string.
+   `DATABASE_URL` to its **pooled** connection string. The app never uses
+   named prepared statements, so a transaction-mode pooler (Supabase's
+   Transaction Pooler, PgBouncer) works without extra flags.
 2. Create a Vercel Blob store — `BLOB_READ_WRITE_TOKEN` is then set for you.
    Without it, uploaded photos are written to a filesystem that does not
    survive a deploy.
@@ -80,9 +82,22 @@ npm run db:status   npm run db:reset
 
 Every variable is documented in `.env.example`.
 
-`npm run db:demo` refuses to run in production, and `db:reset` refuses to touch
-a remote database, unless explicitly overridden. Demo reviews and verification
-states must never reach real customers.
+### Guards
+
+These are keyed on the **target**, not on `NODE_ENV`, because the command most
+likely to do damage — pointing a local shell at production — runs with
+`NODE_ENV` unset:
+
+- `db:demo` refuses any database reachable via `DATABASE_URL`, and refuses
+  before it opens a connection, so it is a complete no-op against production.
+- `db:reset` refuses a remote database.
+- The app refuses to start on the PGlite fallback when `NODE_ENV=production`
+  or `VERCEL` is set, rather than silently running on an ephemeral database.
+- Photo uploads refuse the local-disk fallback in production, rather than
+  writing to a filesystem that does not survive a deploy.
+
+`db:status` is read-only, so it is safe to point at production to see what a
+migration *would* do before running one.
 
 ## Architecture
 
