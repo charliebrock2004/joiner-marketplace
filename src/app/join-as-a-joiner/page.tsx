@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { JoinerForm } from "@/components/forms/JoinerForm";
+import { ButtonLink } from "@/components/ui/Button";
+import { currentUser } from "@/lib/auth/guards.ts";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { site } from "@/lib/config/site";
@@ -17,7 +18,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function JoinAsJoinerPage() {
+export default async function JoinAsJoinerPage() {
+  const user = await currentUser();
+  const joinHref = user?.role === "tradesperson" ? "/dashboard/profile" : "/signup?role=tradesperson&next=%2Fdashboard%2Fprofile";
   return (
     <>
       <PageHeader
@@ -28,7 +31,37 @@ export default function JoinAsJoinerPage() {
 
       <div className="container-page grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-16">
         <div className="min-w-0">
-          <JoinerForm />
+          <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
+            <h2 className="text-xl font-semibold text-ink">Set yourself up in a couple of minutes</h2>
+            <p className="mt-3 leading-relaxed text-ink-soft">
+              Create a free account, tell us your trade, the work you want and how far you&apos;ll
+              travel. You&apos;ll then see local jobs that match — respond to the ones that suit your
+              week and ignore the rest.
+            </p>
+            <ul className="mt-5 space-y-3 text-sm text-muted">
+              {[
+                "Free while we build the network",
+                "Your experience level is shown honestly — apprentices are welcome",
+                "Completed jobs and customer reviews build a profile you own",
+              ].map((item) => (
+                <li key={item} className="flex gap-2.5">
+                  <Icon name="check" className="mt-0.5 size-4 shrink-0 text-brand" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href={joinHref} size="lg">
+                Join as a tradesperson
+                <Icon name="arrowRight" className="size-4" />
+              </ButtonLink>
+              {!user && (
+                <ButtonLink href="/login?next=%2Fdashboard%2Fprofile" variant="secondary" size="lg">
+                  I already have an account
+                </ButtonLink>
+              )}
+            </div>
+          </div>
         </div>
 
         <aside>

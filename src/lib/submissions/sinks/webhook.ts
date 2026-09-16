@@ -25,7 +25,7 @@ export function createWebhookSink(config: { url: string; secret?: string }): Sub
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (config.secret) {
-        headers["X-Joinly-Signature"] = createHmac("sha256", config.secret)
+        headers["X-Tradezy-Signature"] = createHmac("sha256", config.secret)
           .update(body)
           .digest("hex");
       }

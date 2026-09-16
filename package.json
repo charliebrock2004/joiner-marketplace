@@ -12,7 +12,8 @@
     "db:seed": "node scripts/db.mts seed",
     "db:demo": "node scripts/db.mts demo",
     "db:reset": "node scripts/db.mts reset",
-    "db:status": "node scripts/db.mts status"
+    "db:status": "node scripts/db.mts status",
+    "test": "node --import ./tests/alias-hook.mjs --conditions=react-server --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

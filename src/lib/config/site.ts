@@ -78,8 +78,8 @@ function resolveSiteUrl(): string {
 const url = resolveSiteUrl();
 
 export const site = {
-  name: "Joinly",
-  tagline: "Find a joiner for the small jobs",
+  name: "Tradezy",
+  tagline: "Find someone local for the small jobs",
   description:
     "Post a small joinery or carpentry job and get connected with local tradespeople who have spare capacity. Now building our network across Perth, Crieff, Auchterarder, Dunblane, Kinross and the rest of Perthshire.",
   /**
@@ -87,7 +87,7 @@ export const site = {
    * resolveSiteUrl above for how it is chosen.
    */
   url,
-  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "hello@joinly.co.uk",
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || "hello@tradezy.co.uk",
   region: "Perthshire",
   launchStage: "Early access",
 } as const;

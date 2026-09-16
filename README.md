@@ -1,170 +1,170 @@
-# Joinly
+# Tradezy
 
-A local marketplace connecting people who need **small joinery jobs** done with
-joiners, apprentices and skilled tradespeople who have **spare capacity**.
+A local marketplace connecting people who need trade work done with
+tradespeople who have spare capacity.
 
-Launching in Perthshire: Perth, Crieff, Auchterarder, Dunblane, Kinross,
-Pitlochry, Blairgowrie and Scone.
+Launching in Perthshire — Perth, Crieff, Auchterarder, Dunblane, Kinross,
+Pitlochry, Blairgowrie and Scone — starting with joinery and carpentry.
 
-## What this version is
+## What this is
 
-This is **V1 — a demand-validation MVP**, not the full marketplace.
+A working marketplace, not a landing page. Customers create accounts, post
+jobs and choose who does them; tradespeople create profiles, see matching local
+jobs, apply, message the customer and build a reputation from completed work.
 
-It is a public, launchable website that does three things for real:
-
-1. Explains the proposition clearly to someone arriving from a Facebook group.
-2. Takes **job submissions** from customers (including photos).
-3. Takes **registrations** from joiners, and **waiting-list** sign-ups from
-   anyone outside the launch area.
-
-Matching is done **by hand** behind the scenes. That is a deliberate product
-decision: prove that real customers post real jobs and real joiners want them
-before building accounts, messaging, quoting and payments.
-
-Everything on the site that isn't real is labelled as not real. There is no
-fake dashboard, no invented statistics presented as fact, and no claim that any
-joiner has been verified — because none has been yet.
+The trades taxonomy is data, not code. Joinery is where the network is being
+built first, but nine trades ship seeded and adding another is a row, not a
+release.
 
 ## Stack
 
 | Concern | Choice | Why |
 | --- | --- | --- |
-| Framework | Next.js 16 (App Router) | Static marketing pages plus server routes for form handling, deploys to Vercel with no config |
-| Language | TypeScript (strict) | `noUncheckedIndexedAccess` on |
+| Framework | Next.js 16 (App Router) | Server Components, Server Actions, deploys to Vercel |
+| Language | TypeScript (strict, `noUncheckedIndexedAccess`) | |
+| Database | Postgres via `pg`, raw SQL + hand-written migrations | No ORM lock-in or codegen step |
+| Dev/test database | PGlite | Real Postgres in-process, so the app runs with zero configuration |
+| Auth | scrypt (`node:crypto`) + DB-backed sessions | No dependency, full control over RBAC |
 | Styling | Tailwind CSS v4 | Design tokens defined once in `globals.css` |
-| Validation | Zod 4 | One schema drives both client hints and server enforcement |
-| Runtime deps | `next`, `react`, `react-dom`, `zod` | That's the whole list |
+| Validation | Zod 4 | One schema for client hints and server enforcement |
+| Tests | `node:test` against PGlite | Real SQL, no framework |
+
+Runtime dependencies: `next`, `react`, `react-dom`, `zod`, `pg`,
+`@vercel/blob`, `server-only`.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # optional for local development
+npm run db:demo   # migrate + reference data + demo accounts
 npm run dev
 ```
 
-In development, submissions are written to `.data/submissions.jsonl` (with any
-photos beside it) and logged to the console, so the forms work end to end with
-no third-party account. `.data/` is gitignored.
+No database server needed. With `DATABASE_URL` unset the app uses PGlite, an
+in-process build of Postgres stored in `.data/postgres`, running the same SQL
+that runs in production.
+
+Demo accounts (development only, password `tradezy-demo-pw`):
+
+| Email | Role |
+| --- | --- |
+| `customer@example.com` | Customer with open jobs |
+| `joiner@example.com` | Qualified joiner |
+| `apprentice@example.com` | Apprentice |
+| `admin@example.com` | Admin |
+
+**One gotcha:** PGlite is single-writer. Stop the dev server before running
+`db:*` commands, or the two processes will hold different views of the same
+directory.
 
 ```bash
-npm run build      # production build
-npm run start      # serve the production build
-npm run lint       # eslint
-npm run typecheck  # tsc --noEmit
+npm run dev         npm run build       npm run start
+npm run lint        npm run typecheck   npm test
+npm run db:migrate  npm run db:seed     npm run db:demo
+npm run db:status   npm run db:reset
 ```
 
-## Before you deploy
+## Deploying
 
-Set the environment variables in `.env.example` on Vercel. **At minimum you
-must configure one durable destination for submissions** — either the Resend
-email variables or a webhook URL.
+1. Create a Postgres database (Supabase, Neon, Vercel Postgres) and set
+   `DATABASE_URL` to its **pooled** connection string.
+2. Create a Vercel Blob store — `BLOB_READ_WRITE_TOKEN` is then set for you.
+   Without it, uploaded photos are written to a filesystem that does not
+   survive a deploy.
+3. Set `NEXT_PUBLIC_SITE_URL` to your real domain.
+4. Run the migrations against it once: `DATABASE_URL=... npm run db:seed`.
+   This applies the schema and the trades taxonomy. It does **not** create
+   demo data.
+5. Create your admin account: sign up normally, then promote the row —
+   `update users set role = 'admin' where email = '...';`
 
-`NEXT_PUBLIC_SITE_URL` should be your real domain. It is not required for the
-build to succeed: a missing, empty or malformed value falls back to Vercel's
-own deployment domain and then to localhost, with a warning, rather than
-failing the build. Canonical URLs, the sitemap and share links will be wrong
-until it is set, so set it before launch.
+Every variable is documented in `.env.example`.
 
-If you deploy without either, the forms return a clear error instead of
-pretending to have accepted the job. That is intentional: silently losing a
-customer's first submission is the worst thing this site could do.
+`npm run db:demo` refuses to run in production, and `db:reset` refuses to touch
+a remote database, unless explicitly overridden. Demo reviews and verification
+states must never reach real customers.
 
 ## Architecture
 
 ```
 src/
-  app/                     Routes. Every page is statically rendered.
-    api/{jobs,joiners,waitlist}/   Submission endpoints
-    opengraph-image.tsx    The Facebook share card
-  components/
-    forms/                 The three forms + shared submit hook
-    marketing/             Homepage sections
-    site/                  Header, footer, logo, structured data
-    ui/                    Button, Field, Badge, Icon, Section, OptionCards
+  app/
+    (auth)/{login,signup}     Authentication
+    dashboard/                Customer and tradesperson areas (role-aware)
+    jobs/                     Tradesperson marketplace
+    tradespeople/[id]         Public profile
+    admin/                    Moderation, verification, reports, audit log
+    api/uploads/[...path]     Local photo serving (development only)
+  components/{ui,site,forms,marketing,marketplace,admin,auth}
   lib/
-    api/                   Shared submission handler (parse → limit → validate → store)
-    config/site.ts         Brand, URL, contact details
-    content/               Categories, launch towns, FAQs — the editable content
-    security/              Rate limiting, upload validation
-    submissions/           Delivery pipeline (see below)
-    validation/            Zod schemas
+    auth/        password hashing, sessions, guards
+    db/
+      client.ts      pg + PGlite behind one interface
+      migrations/    plain .sql, applied in order
+      queries/       all data access, each scoped by viewer
+    actions/     Server Actions — every mutation starts with a guard
+    geo/         postcode parsing and radius tiers
+    storage/     Vercel Blob + local disk behind one interface
+    validation/  Zod schemas
+tests/           node:test suite
 ```
 
-### The submission pipeline
+### Authorisation
 
-The one piece of architecture worth keeping when the real marketplace is built.
+Guards live in `lib/auth/guards.ts` and are called by every page, action and
+route handler that touches protected data. Hiding a link is never the control.
 
-```
-Route handler → handleSubmission() → createSubmission() → [sinks]
-```
+Reads are additionally scoped in SQL: `getJobForCustomer(jobId, customerId)`
+has no variant that trusts the caller to have checked ownership first, and
+`getConversation` returns nothing unless the viewer is one of the two
+participants. Knowing a UUID is not enough to reach anything.
 
-A **sink** is anything that can durably accept a submission. Today there are
-four: `email` (Resend), `webhook` (signed, generic), `file` and `console` (both
-development only). Adding Postgres later means writing one more sink — the
-forms, validation and API routes do not change.
+### The trust model
 
-Two rules hold the pipeline honest:
+- **Experience level is always shown.** Apprentice, qualified, experienced or
+  other skilled worker. Nobody is flattened into a generic "tradesperson".
+- **Verified means an admin checked something.** `verification_status` is
+  writable only from the admin module; the tradesperson-facing profile update
+  cannot touch it, and there is a test asserting that. Everything else renders
+  as "Not yet verified".
+- **Qualifications are labelled self-declared** until that happens.
+- **Reviews require a completed job.** The subject is read from the job row,
+  never submitted by the client, and a unique index allows one review per
+  reviewer per job per direction. `direction` means tradesperson-to-customer
+  reviews need no migration later.
 
-- A sink is **durable** or it isn't. Console logging isn't. The local file sink
-  is durable in development but not in production, because serverless
-  filesystems are ephemeral.
-- A submission is only reported as successful if **at least one durable sink
-  accepted it**. Otherwise the visitor gets a 503 or 502 and an honest message.
+### What the database enforces
 
-### Security
+Not just the application: case-insensitive unique emails; one application per
+tradesperson per job; at most one accepted application per job; one review per
+reviewer per job per direction; no self-reviews; ratings 1–5; an accepted job
+must name its tradesperson; one open report per reporter per target.
 
-| Control | Where |
-| --- | --- |
-| Server-side validation on every field | `lib/validation`, enforced in `lib/api/submission-handler.ts` |
-| Rate limiting (8 per 15 min per IP, per form) | `lib/security/rate-limit.ts` |
-| Honeypot field | `honeypotSchema`, silently discards bot submissions |
-| Upload validation by **magic bytes**, not filename or MIME | `lib/security/uploads.ts` |
-| Filenames regenerated on upload (no path traversal) | `lib/security/uploads.ts` |
-| URL scheme restricted to http/https (blocks `javascript:`) | `lib/validation/joiner.ts` |
-| CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy | `next.config.ts` |
-| No IP addresses stored on submission records | `lib/api/submission-handler.ts` |
+### Privacy
 
-Photos are never published to a public URL. They are attached to the
-notification email and, in development, written to `.data/`.
+The marketplace listing never selects the customer's name, email, phone or full
+postcode — those columns are not in the query, so they cannot leak through a
+serialisation mistake. A tradesperson sees the outward code ("PH7") until they
+are chosen, then the full postcode. There is a test asserting the marketplace
+row shape.
 
-### SEO
+### Location matching
 
-Per-page titles and descriptions, canonical URLs, `sitemap.xml`, `robots.txt`,
-Open Graph and Twitter cards, a generated share image, and JSON-LD for
-Organization, WebSite and FAQPage. The FAQ structured data is generated from
-the same array the page renders, so the two cannot drift.
+Deterministic and tiered by postcode: the same outward code always matches, the
+wider postal area matches for anyone travelling 10+ miles, and a different
+postcode area never matches.
 
-## Deliberately not built in V1
+This is a deliberate limitation. True mileage needs a postcode centroid dataset
+(ONS publishes one); inventing coordinates would produce confidently wrong
+matches. Nothing in the UI claims more precision than this gives.
 
-Accounts and login · messaging · quoting · payments and escrow · reviews and
-ratings · identity, qualification or insurance verification · automated
-matching · an admin dashboard · native apps · analytics.
+## Not built yet
 
-Each of these is a real requirement for the marketplace and each is a reason to
-wait for evidence. The schema sketch below is where they start.
+Payments, subscriptions, AI matching, native apps, push/email notifications,
+automated payouts, nationwide coverage, recommendation algorithms. Two-way
+reviews are modelled but only customer-to-tradesperson is written.
 
-## The path to the real marketplace
-
-The V1 forms already collect, in validated and normalised form, most of what
-the first real tables will need:
-
-| V1 today | Becomes |
-| --- | --- |
-| Job submission | `jobs` + `job_photos` |
-| Joiner registration | `users` + `worker_profiles` + `worker_skills` |
-| `experienceLevel` | The trust model's backbone — drives what a profile is allowed to claim |
-| `qualifications` (self-declared) | `qualifications` with a `verification_status`, never displayed as checked until it is |
-| Waiting list | `area_demand`, which decides where to expand |
-
-The trust model is the part to get right, and it is already reflected in the
-copy: experience level is shown honestly, reviews will only be possible on jobs
-actually completed through the platform, and no badge claims a check that
-hasn't happened.
-
-## Content you can edit without touching components
-
-- `src/lib/config/site.ts` — name, URL, contact email, region
-- `src/lib/content/categories.ts` — the eight job categories
-- `src/lib/content/towns.ts` — launch towns and covered postcode areas
-- `src/lib/content/faqs.ts` — the FAQ (feeds both the page and its structured data)
+Known trade-off: adding auth to the header made the marketing pages render
+per-request rather than statically. Next's fix for this (Partial Prerendering)
+is experimental in this version, and shipping experimental APIs in a product
+you are launching is not worth the TTFB.

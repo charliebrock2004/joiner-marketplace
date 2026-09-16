@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { PostJobForm } from "@/components/forms/PostJobForm";
+import { ButtonLink } from "@/components/ui/Button";
+import { currentUser } from "@/lib/auth/guards.ts";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { site } from "@/lib/config/site";
@@ -23,7 +24,9 @@ const reassurances = [
   "Your contact details are only passed on to a joiner you've agreed to work with",
 ];
 
-export default function PostAJobPage() {
+export default async function PostAJobPage() {
+  const user = await currentUser();
+  const postHref = user?.role === "customer" ? "/dashboard/jobs/new" : "/signup?role=customer&next=%2Fdashboard%2Fjobs%2Fnew";
   return (
     <>
       <PageHeader
@@ -34,7 +37,37 @@ export default function PostAJobPage() {
 
       <div className="container-page grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-16">
         <div className="min-w-0">
-          <PostJobForm />
+          <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
+            <h2 className="text-xl font-semibold text-ink">Post your job in a couple of minutes</h2>
+            <p className="mt-3 leading-relaxed text-ink-soft">
+              Create a free account, describe the job and add a photo or two. Local tradespeople
+              whose trade and travel area match will see it and tell you if they&apos;re interested.
+              You pick who you want and agree the price with them directly.
+            </p>
+            <ul className="mt-5 space-y-3 text-sm text-muted">
+              {[
+                "Free to post — we don't take a cut of the job",
+                "You see each person's experience level, reviews and completed jobs before choosing",
+                "Your full address and phone number are only shared once you've chosen someone",
+              ].map((item) => (
+                <li key={item} className="flex gap-2.5">
+                  <Icon name="check" className="mt-0.5 size-4 shrink-0 text-brand" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <ButtonLink href={postHref} size="lg">
+                Post a job
+                <Icon name="arrowRight" className="size-4" />
+              </ButtonLink>
+              {!user && (
+                <ButtonLink href="/login?next=%2Fdashboard%2Fjobs%2Fnew" variant="secondary" size="lg">
+                  I already have an account
+                </ButtonLink>
+              )}
+            </div>
+          </div>
         </div>
 
         <aside>
