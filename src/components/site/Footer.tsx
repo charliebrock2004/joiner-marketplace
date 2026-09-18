@@ -16,7 +16,7 @@ export function Footer() {
               have spare capacity. We&apos;re building the network in {site.region} first.
             </p>
             <div className="mt-5">
-              <ShareLinks />
+              <ShareLinks url={site.url} />
             </div>
           </div>
 

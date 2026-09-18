@@ -10,12 +10,16 @@
  * Runs against DATABASE_URL when set, otherwise the local PGlite database.
  */
 import { createDatabase, LOCAL_DB_DIR } from "../src/lib/db/client.ts";
+import { readEnvVarSource, DATABASE_URL_KEYS } from "../src/lib/env.ts";
 import { migrate, pendingMigrations } from "../src/lib/db/migrate.ts";
 import { seedReferenceData } from "../src/lib/db/reference-data.ts";
 import { assertDemoSeedAllowed, seedDemoData } from "../src/lib/db/demo-seed.ts";
 
 const command = process.argv[2] ?? "migrate";
-const usingLocal = !process.env.DATABASE_URL?.trim();
+// Which spelling supplied the connection string, if any. The name is safe
+// to print; the value is never read here.
+const databaseUrlKey = readEnvVarSource(...DATABASE_URL_KEYS);
+const usingLocal = !databaseUrlKey;
 const log = (message: string) => console.log(`  ${message}`);
 
 function assertLocalOnly(action: string): void {
@@ -31,7 +35,9 @@ if (command === "demo") assertDemoSeedAllowed();
 
 const db = await createDatabase({ dataDir: usingLocal ? LOCAL_DB_DIR : undefined });
 
-console.log(`\ndatabase: ${usingLocal ? `local PGlite (${LOCAL_DB_DIR})` : "DATABASE_URL"}`);
+console.log(
+  `\ndatabase: ${usingLocal ? `local PGlite (${LOCAL_DB_DIR})` : `remote (via ${databaseUrlKey})`}`,
+);
 
 try {
   switch (command) {

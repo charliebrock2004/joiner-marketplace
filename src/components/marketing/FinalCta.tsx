@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui/Button";
 import { ShareLinks } from "@/components/site/ShareLinks";
+import { site } from "@/lib/config/site";
 import { Icon } from "@/components/ui/Icon";
 
 export function FinalCta() {
@@ -33,7 +34,7 @@ export function FinalCta() {
               the most useful thing you can do for it.
             </p>
             <div className="mt-5">
-              <ShareLinks />
+              <ShareLinks url={site.url} />
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import type { Database } from "./client.ts";
 import { hashPassword } from "../auth/password.ts";
 import { parsePostcode } from "../geo/postcode.ts";
+import { readDatabaseUrl } from "../env.ts";
 
 /**
  * Demo data for local development.
@@ -27,7 +28,10 @@ export function assertDemoSeedAllowed(): void {
    *
    * Any remote database is refused. Only the local PGlite database is allowed.
    */
-  const remote = Boolean(process.env.DATABASE_URL?.trim());
+  // Uses the same accepted-name list as the database client, so a lowercase
+  // database_url counts as remote here too. A guard that recognised fewer
+  // spellings than the client would be a hole, not an inconvenience.
+  const remote = Boolean(readDatabaseUrl());
   const deployed = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
 
   if ((remote || deployed) && process.env.ALLOW_DEMO_SEED !== "yes") {

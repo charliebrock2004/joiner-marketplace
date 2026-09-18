@@ -53,6 +53,13 @@ function parseSiteUrl(value: string | undefined): string | null {
 function resolveSiteUrl(): string {
   const candidates = [
     process.env.NEXT_PUBLIC_SITE_URL,
+    // Lowercase fallback, for a variable created through a dashboard that
+    // forces lowercase keys. Deliberately written as a literal property
+    // access, like every entry here: Next.js only inlines literal
+    // `process.env.X` reads into the browser bundle, so a dynamic lookup
+    // would break the uppercase name above. See the note below on what the
+    // browser actually receives.
+    process.env.next_public_site_url,
     // Both are provided automatically by Vercel while "Automatically expose
     // System Environment Variables" is enabled (the default).
     process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL,
@@ -64,9 +71,14 @@ function resolveSiteUrl(): string {
     if (parsed) return parsed;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  // Server-side only. In the browser the lowercase name is invisible to Next,
+  // so this module always falls back to localhost there — which is fine,
+  // because no client component reads `site.url` (see the note above). Warning
+  // about it in the user's console would be pure noise.
+  if (process.env.NODE_ENV === "production" && typeof window === "undefined") {
     console.warn(
-      "[site] NEXT_PUBLIC_SITE_URL is not set to a valid URL. Falling back to " +
+      "[site] No valid site URL found (checked NEXT_PUBLIC_SITE_URL and " +
+        "next_public_site_url). Falling back to " +
         `${LOCAL_FALLBACK_URL}. Canonical URLs, the sitemap and Open Graph tags ` +
         "will be wrong until it is configured.",
     );

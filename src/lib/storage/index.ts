@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { validateImageUploads, type UploadError } from "@/lib/security/uploads";
+import { readBlobToken } from "@/lib/env.ts";
 import type { SubmissionAttachment } from "@/lib/submissions/types";
 
 /**
@@ -26,7 +27,7 @@ const LOCAL_UPLOAD_DIR = path.join(process.cwd(), ".data", "uploads");
 export type StoredImage = { url: string; size: number; contentType: string };
 
 export function isBlobConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+  return Boolean(readBlobToken());
 }
 
 function isProductionRuntime(): boolean {
@@ -44,7 +45,8 @@ function isProductionRuntime(): boolean {
 function assertStorageConfigured(): void {
   if (!isBlobConfigured() && isProductionRuntime()) {
     throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not set. Refusing to write uploads to the local " +
+      "No Blob token found (checked BLOB_READ_WRITE_TOKEN and " +
+        "blob_read_write_token). Refusing to write uploads to the local " +
         "filesystem in production — it is ephemeral, so photos would disappear " +
         "on the next deploy. Create a Vercel Blob store for this project.",
     );
@@ -67,12 +69,18 @@ async function storeOne(
   const key = `${prefix}/${randomUUID()}.${extension}`;
   const bytes = Buffer.from(attachment.content, "base64");
 
-  if (isBlobConfigured()) {
+  const blobToken = readBlobToken();
+  if (blobToken) {
     const { put } = await import("@vercel/blob");
     const result = await put(key, bytes, {
       access: "public",
       contentType: attachment.contentType,
       addRandomSuffix: false,
+      // Passed explicitly rather than left to the SDK. @vercel/blob reads only
+      // the exact key BLOB_READ_WRITE_TOKEN from the environment and throws if
+      // it is absent, so a lowercase blob_read_write_token would fail at upload
+      // time even though our own check had already passed.
+      token: blobToken,
     });
     return { url: result.url, size: attachment.size, contentType: attachment.contentType };
   }

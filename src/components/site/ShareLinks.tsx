@@ -10,6 +10,12 @@ const SHARE_TEXT =
 /**
  * Sharing is a primary growth channel here — the site gets posted into local
  * Facebook groups. Native share on mobile, Facebook + copy-link elsewhere.
+ *
+ * `url` should always be passed from a server component. Only the
+ * NEXT_PUBLIC_-prefixed site URL names are inlined into the browser bundle, so
+ * when the site URL comes from the lowercase fallback the client's own copy of
+ * `site.url` is the localhost default. Taking it as a prop means the share
+ * link always carries the value the server resolved.
  */
 export function ShareLinks({ url = site.url }: { url?: string }) {
   const [copied, setCopied] = useState(false);

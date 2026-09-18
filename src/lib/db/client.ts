@@ -16,6 +16,8 @@
  * ./queries, which are what application code imports.
  */
 
+import { readDatabaseUrl } from "../env.ts";
+
 export type QueryParam = string | number | boolean | Date | null | undefined | object;
 
 export interface Database {
@@ -138,7 +140,8 @@ async function createPgliteDatabase(dataDir: string | undefined): Promise<Databa
     ({ PGlite } = await import("@electric-sql/pglite"));
   } catch {
     throw new Error(
-      "DATABASE_URL is not set and the local PGlite fallback is unavailable. " +
+      "No database connection string found (checked DATABASE_URL and " +
+        "database_url) and the local PGlite fallback is unavailable. " +
         "Set DATABASE_URL to a Postgres connection string.",
     );
   }
@@ -217,7 +220,8 @@ export function isProductionRuntime(): boolean {
 function assertDatabaseConfigured(connectionString: string | undefined): void {
   if (!connectionString && isProductionRuntime()) {
     throw new Error(
-      "DATABASE_URL is not set. Refusing to start on the local PGlite fallback " +
+      "No database connection string found (checked DATABASE_URL and " +
+        "database_url). Refusing to start on the local PGlite fallback " +
         "in production — it is in-process and ephemeral, so all data would be " +
         "lost on the next cold start. Set DATABASE_URL to your Postgres " +
         "connection string.",
@@ -227,7 +231,7 @@ function assertDatabaseConfigured(connectionString: string | undefined): void {
 
 export async function getDb(): Promise<Database> {
   if (!instance) {
-    const connectionString = process.env.DATABASE_URL?.trim();
+    const connectionString = readDatabaseUrl();
     assertDatabaseConfigured(connectionString);
     instance = connectionString
       ? createPgDatabase(connectionString)
@@ -240,7 +244,7 @@ export async function getDb(): Promise<Database> {
 export async function createDatabase(
   options: { url?: string; dataDir?: string } = {},
 ): Promise<Database> {
-  const connectionString = options.url ?? process.env.DATABASE_URL?.trim();
+  const connectionString = options.url ?? readDatabaseUrl();
   assertDatabaseConfigured(connectionString);
   return connectionString
     ? createPgDatabase(connectionString)
@@ -248,5 +252,5 @@ export async function createDatabase(
 }
 
 export function isUsingLocalDatabase(): boolean {
-  return !process.env.DATABASE_URL?.trim();
+  return !readDatabaseUrl();
 }
